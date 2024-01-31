@@ -1,0 +1,139 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CSV Pie Chart Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 20px;
+        }
+        #myChart {
+            margin: auto;
+            width: 36%;
+        }
+        button {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="csvFileInput" accept=".csv">
+    <div>
+        <button id="prevButton">Previous</button>
+        <button id="nextButton">Next</button>
+    </div>
+    <canvas id="myChart"></canvas>
+    <div id="dataID"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script>
+
+let csvData = [];
+let currentIndex = 0;
+let chart;
+
+document.getElementById('csvFileInput').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        parseCSV(e.target.result);
+        updateChart(currentIndex);
+    };
+    reader.readAsText(file);
+});
+
+document.getElementById('nextButton').addEventListener('click', function() {
+    currentIndex = (currentIndex + 1) % csvData.length;
+    updateChart(currentIndex);
+});
+
+document.getElementById('prevButton').addEventListener('click', function() {
+    currentIndex = (currentIndex - 1 + csvData.length) % csvData.length;
+    updateChart(currentIndex);
+});
+
+function parseCSV(text) {
+    const rows = text.split('\n').filter(Boolean);
+    csvData = rows.map(row => {
+        const columns = row.split(',');
+        return {
+            id: columns[0],
+            values: columns.slice(1).map(Number)
+        };
+    });
+}
+
+function updateChart(index) {
+    const data = csvData[index];
+    document.getElementById('dataID').innerText = `ID: ${data.id}`;
+    
+    if (!chart) {
+        initializeChart(data);
+    } else {
+        updateChartData(chart, data.values);
+    }
+}
+
+function initializeChart(data) {
+    const ctx = document.getElementById('myChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ["LR", "MSt", "TSt", "PS", "End of Stance " + getCumulativePercentage(data.values, 3) + "%", "IS", "MS", "TS"],
+            datasets: [{
+                data: insertDummySlice(data.values, 4, 0.5),
+                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#000000', '#9966FF', '#FF9F40', '#C9CBCF'],
+            }]
+        },
+        options: {
+            animation: {
+                animateScale: true
+            },
+            plugins: {
+                datalabels: {
+                    data: 'LR',
+                    color: '#fff',
+                    anchor: 'end',
+                    align: 'start',
+                    offset: -10,
+                    font: {
+                        size: 12
+                    },
+                    formatter: (value, ctx) => {
+                        return ctx.chart.data.labels[ctx.dataIndex];
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateChartData(chart, newData) {
+    chart.data.datasets.forEach((dataset) => {
+        dataset.data = insertDummySlice(newData, 4, 0.5);
+    });
+    chart.data.labels[4] = "End of Stance " + getCumulativePercentage(newData, 3) + "%";
+    chart.update();
+}
+
+function getCumulativePercentage(dataArray, index) {
+    let total = dataArray.reduce((a, b) => a + b, 0);
+    let cumulativeSum = dataArray.slice(0, index + 1).reduce((a, b) => a + b, 0);
+    return Math.round((cumulativeSum / total) * 100);
+}
+
+function insertDummySlice(dataArray, index, dummyValuePercent) {
+    let total = dataArray.reduce((a, b) => a + b, 0);
+    let dummyValue = total * (dummyValuePercent / 100);
+    let newData = dataArray.slice();
+    newData.splice(index, 0, dummyValue);
+    return newData;
+}
+
+    </script>
+</body>
+</html>
